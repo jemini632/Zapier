@@ -3,22 +3,28 @@ import {authMiddleware} from "../middleware";
 import {SignupSchema , SigninSchema} from "../types"
 import { PrismaClient } from "@prisma/client";
 import { prismaClient } from "../db";
-import type {Request, Response} from 'express';
-import {Jwt} from "jsonwebtoken";
+import { Express, Request, Response} from 'express';
+import jwt from "jsonwebtoken";
 import { JWT_PASSWORD } from "../config";
-declare var require: any
+import request from "request";
+import { ZodString } from "zod";
 
 const router = Router();
 
-router.post("/signup" , async (req,res) => {
-   const username =req.body.username;
+router.post("/signup" , async (req: Request, res: Response)=> {
+   const body =req.body;
+   console.log(req.body);
+   console.log(req.body);
+
    const parsedData = SignupSchema.safeParse(body);
 
 
    if(!parsedData.success){
-      return res.status(402).json({
+      console.log(parsedData.error)
+      return  res.status(402).json({
         message: "Incorrects Inputs"
       })
+      
    }
 
    const userExists=await prismaClient.user.findFirst({
@@ -32,7 +38,7 @@ router.post("/signup" , async (req,res) => {
         message: "User already exits"
     })
    }
-
+   
    await prismaClient.user.create({
     data:{
          email: parsedData.data.username,
@@ -41,30 +47,34 @@ router.post("/signup" , async (req,res) => {
     }
    })
 
-   return res.json({
-    message: "Please verify your account"
-   })
+    return res.json({
+       message: "Please verify your account"
+   });
+   
 
 
 })
 
 router.post("/signin",async (req,res)=> {
-    const username =req.body.username;
+    const body =req.body;
    const parsedData = SigninSchema.safeParse(body);
 
 
    if(!parsedData.success){
-      return res.status(411).json({
-        message: "Incorrects Inputs"
+       return  res.status(411).json({
+        message: "Incorrect Inputs"
       })
+      
    }
    
+  
    const user= await prismaClient.user.findFirst({
     where:{
         email: parsedData.data.username,
         password: parsedData.data.password
     }
    })
+
    if(!user){
       return res.status(403).json({
         message: "Invalid credentials"
@@ -75,13 +85,29 @@ router.post("/signin",async (req,res)=> {
     id: user.id
    },JWT_PASSWORD)
 
-   res.json({
-    toke: token,
+   return res.json({
+    token: token,
    });
 })
 
-router.get("/user",authMiddleware ,(req,res) => {
-    console.log("signup here");
+router.get("/",authMiddleware,async (req,res)=> {
+   
+    
+    // @ts-ignore
+    const id =req.id;
+    const user = await prismaClient.user.findFirst({
+      where:{
+        id
+      },
+      select:{
+        name: true ,
+        email: true
+      }
+    })
+
+    return res.json({
+      user
+    });
 })
 
 export const userRouter=router;
